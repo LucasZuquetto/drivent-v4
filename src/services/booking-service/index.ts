@@ -15,6 +15,10 @@ async function getBookingByUserId(userId: number) {
 async function createBooking(userId: number, roomId: number) {
   await verifyBooking(userId);
   await verifyRoom(roomId, userId);
+  const bookingAlreadyExists = await bookingRepository.findBookingByUserId(userId);
+  if (bookingAlreadyExists) {
+    throw forbiddenError();
+  }
 
   const createBooking = await bookingRepository.createBooking(userId, roomId);
   return createBooking;
@@ -25,9 +29,10 @@ async function verifyBooking(userId: number) {
   if (!enrollment) {
     throw notFoundError();
   }
+  
   const ticket = await ticketRepository.findTicketByEnrollmentId(enrollment.id);
   if (!ticket || ticket.TicketType.isRemote || !ticket.TicketType.includesHotel || ticket.status === "RESERVED") {
-    throw forbiddenError();
+    throw notFoundError();
   }
 }
 
@@ -35,10 +40,6 @@ async function verifyRoom(roomId: number, userId: number) {
   const room = await hotelRepository.findRoomByRoomId(roomId);
   if (!room) {
     throw notFoundError();
-  }
-  const bookingAlreadyExists = await bookingRepository.findBookingByUserId(userId);
-  if (bookingAlreadyExists) {
-    throw forbiddenError();
   }
   const roomBookings = await bookingRepository.findBookingsByRoomId(roomId);
   if (roomBookings.length === room.capacity) {
@@ -56,6 +57,10 @@ async function verifyUserBooking(userId: number) {
 
 async function updateBooking(userId: number, roomId: number, bookingId: number) {
   await verifyBooking(userId);
+  const bookingAlreadyExists = await bookingRepository.findBookingByUserId(userId);
+  if (!bookingAlreadyExists) {
+    throw forbiddenError();
+  }
   await verifyRoom(roomId, userId);
   await verifyUserBooking(userId);
 
